@@ -20,7 +20,7 @@ def load_configuration():
     # Get required configuration
     config = {
         'profile': os.getenv('AWS_PROFILE'),
-        'env_file': os.path.expandvars(os.path.expanduser(os.getenv('AWS_ENV_FILE', '~/aws-env')))
+        'env_file': os.path.expandvars(os.path.expanduser(os.getenv('AWS_ENV_FILE', '~/.aws-env')))
     }
 
     # Validate configuration
