@@ -32,4 +32,5 @@ ENV/
 *.swo
 
 # AWS
-.aws-env
+.aws-env.env
+.env
