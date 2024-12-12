@@ -20,7 +20,8 @@ def load_configuration():
     # Get required configuration
     config = {
         'profile': os.getenv('AWS_PROFILE'),
-        'env_file': os.path.expandvars(os.path.expanduser(os.getenv('AWS_ENV_FILE', '~/.aws-env')))
+        'env_file': os.path.expandvars(os.path.expanduser(os.getenv('AWS_ENV_FILE', '~/.aws-env'))),
+        'function_file': os.path.expandvars(os.path.expanduser(os.getenv('AWS_FUNCTION_FILE', '~/.aws-functions')))
     }
 
     # Validate configuration
@@ -77,12 +78,66 @@ def save_to_env_file(credentials, env_file_path):
     return True
 
 
+def create_shell_function(function_file_path, env_file_path):
+    """Create a shell function file that can be sourced"""
+    function_file = Path(function_file_path)
+    function_file.parent.mkdir(parents=True, exist_ok=True)
+
+    function_content = f"""
+# AWS SSO credential management functions
+aws-load-creds() {{
+    if [ -f "{env_file_path}" ]; then
+        source "{env_file_path}"
+        echo "AWS credentials loaded successfully"
+    else
+        echo "No credentials file found at {env_file_path}"
+        return 1
+    fi
+}}
+
+aws-check-creds() {{
+    if [ -n "${{AWS_ACCESS_KEY_ID}}" ]; then
+        echo "AWS credentials are set:"
+        echo "AWS_ACCESS_KEY_ID: ${{AWS_ACCESS_KEY_ID:0:8}}..."
+        aws sts get-caller-identity
+    else
+        echo "No AWS credentials are currently set"
+        return 1
+    fi
+}}
+
+aws-clear-creds() {{
+    unset AWS_ACCESS_KEY_ID
+    unset AWS_SECRET_ACCESS_KEY
+    unset AWS_SESSION_TOKEN
+    echo "AWS credentials cleared"
+}}
+"""
+
+    with open(function_file, 'w') as f:
+        f.write(function_content)
+
+    function_file.chmod(0o600)
+    print(f"Shell functions saved to {function_file}")
+    print("\nTo use these functions, add this line to your ~/.bashrc or ~/.zshrc:")
+    print(f"source {function_file}")
+    print("\nAvailable commands:")
+    print("aws-load-creds  - Load saved AWS credentials")
+    print("aws-check-creds - Check current AWS credentials")
+    print("aws-clear-creds - Clear AWS credentials from environment")
+
+    return True
+
+
 def main():
     try:
         config = load_configuration()
         if run_aws_sso_login(config['profile']):
             credentials = get_credentials(config['profile'])
             save_to_env_file(credentials, config['env_file'])
+            if save_to_env_file(credentials, config['env_file']):
+                create_shell_function(config['function_file'], config['env_file'])
+
     except Exception as e:
         print(f"Error: {e}")
         return 1
